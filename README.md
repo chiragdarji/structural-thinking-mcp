@@ -65,15 +65,187 @@ npm run build
 npm start
 ```
 
-This server speaks MCP over **stdio** (ideal for Cursor).
+This server speaks MCP over **stdio** (ideal for Cursor and VSCode).
 
-## Add to Cursor
-1. Open **Cursor Settings → MCP Servers → Add**.
-2. Choose **Stdio**.
-3. Command: `node /mnt/data/structural-thinking-mcp/dist/server.js`
-4. Name it **StructuralThinking**.
+# 🚀 IDE Integration Guide
 
-> Docs: Cursor MCP guide and the official MCP SDK. 
+## 📦 Installation
+
+First, install the MCP server globally:
+
+```bash
+npm install -g structural-thinking-mcp
+```
+
+Or use without global installation:
+```bash
+npx structural-thinking-mcp
+```
+
+---
+
+## 🎯 Cursor IDE Setup
+
+### Method 1: Using Global Installation (Recommended)
+
+1. **Open Cursor Settings**:
+   - Go to **Settings** → **Features** → **Model Context Protocol**
+   - Or use `Cmd/Ctrl + ,` and search for "MCP"
+
+2. **Add New MCP Server**:
+   - Click **"Add Server"**
+   - **Server Name**: `Structural Thinking`
+   - **Command**: `structural-thinking-mcp` (if globally installed)
+   - **Arguments**: Leave empty
+   - **Environment Variables**: Leave empty
+
+3. **Enable the Server**:
+   - Toggle the server **ON**
+   - Restart Cursor to apply changes
+
+### Method 2: Using npx (Alternative)
+
+If you prefer not to install globally:
+- **Command**: `npx`
+- **Arguments**: `structural-thinking-mcp`
+
+### Method 3: Local Development
+
+For local development or custom builds:
+- **Command**: `node`
+- **Arguments**: `/path/to/your/structural-thinking-mcp/dist/server.js`
+
+---
+
+## 🔧 VSCode Setup
+
+### Prerequisites
+Install the [MCP Extension for VSCode](https://marketplace.visualstudio.com/items?itemName=modelcontextprotocol.mcp) (if available) or use a compatible MCP client.
+
+### Configuration
+
+1. **Create MCP Configuration**:
+   Create or edit your VSCode settings (`settings.json`):
+
+```json
+{
+  "mcp.servers": {
+    "structural-thinking": {
+      "command": "structural-thinking-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}
+```
+
+2. **Alternative with npx**:
+```json
+{
+  "mcp.servers": {
+    "structural-thinking": {
+      "command": "npx",
+      "args": ["structural-thinking-mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+3. **Reload VSCode**:
+   - Press `Cmd/Ctrl + Shift + P`
+   - Run **"Developer: Reload Window"**
+
+---
+
+## ✅ Testing Your Setup
+
+### In Cursor:
+1. Open any file or start a new chat
+2. Type: **`st_refine "Create a user authentication system"`**
+3. You should see detailed analysis followed by an improved prompt
+
+### In VSCode:
+1. Open the Command Palette (`Cmd/Ctrl + Shift + P`)
+2. Look for MCP-related commands
+3. Test the `st_refine` tool with a sample prompt
+
+### Expected Output:
+```
+## 📊 Analysis Summary
+**Quality Score:** 🟡 Good (0.73/1.0)
+**Ready for Implementation:** ✅ Yes
+...
+
+## 🎯 IMPROVED PROMPT:
+Create a user authentication system for a web application. Requirements: Provide a comprehensive response with specific examples and actionable details...
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues:
+
+**❌ "Command not found: structural-thinking-mcp"**
+- **Solution**: Install globally with `npm install -g structural-thinking-mcp`
+- **Alternative**: Use `npx structural-thinking-mcp` in the command field
+
+**❌ "MCP Server not connecting"**
+- **Solution**: Restart your IDE after adding the server
+- **Check**: Ensure the command path is correct
+- **Verify**: Run `structural-thinking-mcp` in terminal to test
+
+**❌ "No tools available"**
+- **Solution**: Wait a few seconds after IDE restart
+- **Check**: Server status in MCP settings
+- **Debug**: Check IDE console for error messages
+
+### Verification Commands:
+```bash
+# Test installation
+structural-thinking-mcp --help
+
+# Test with npx
+npx structural-thinking-mcp --help
+
+# Check global installation
+npm list -g structural-thinking-mcp
+```
+
+---
+
+## 💡 Usage Examples
+
+### Basic Usage:
+```
+st_refine "Write API documentation"
+```
+
+### With Domain Context:
+```
+st_refine "Build a React component" --domain code
+```
+
+### Skip Validation:
+```
+st_refine "Create marketing copy" --includeValidation false
+```
+
+---
+
+## 🔄 Updating
+
+To update to the latest version:
+```bash
+npm update -g structural-thinking-mcp
+```
+
+Then restart your IDE to use the updated version.
+
+---
+
+> **📚 Documentation**: For more details, see the [MCP Protocol Documentation](https://modelcontextprotocol.io/) and [Cursor MCP Guide](https://docs.cursor.com/). 
 
 ## Development (ts-node)
 ```bash
