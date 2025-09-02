@@ -22,15 +22,15 @@
     "prompt-analysis",
     "typescript"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "Chirag Darji <chiragkumar.darji@avalara.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/structural-thinking-mcp.git"
+    "url": "https://github.com/chiragdarji/structural-thinking-mcp.git"
   },
-  "homepage": "https://github.com/yourusername/structural-thinking-mcp#readme",
+  "homepage": "https://github.com/chiragdarji/structural-thinking-mcp#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/structural-thinking-mcp/issues"
+    "url": "https://github.com/chiragdarji/structural-thinking-mcp/issues"
   },
   "scripts": {
     "build": "tsc && cp -r src/schema dist/",
