@@ -1,7 +1,6 @@
 {
   "name": "structural-thinking-mcp",
   "version": "0.1.0",
-
   "type": "module",
   "description": "MCP server for converting free-text prompts into structured thinking frameworks with validation and gap detection.",
   "main": "dist/server.js",
@@ -22,11 +21,11 @@
     "prompt-analysis",
     "typescript"
   ],
-  "author": "Chirag Darji <chiragkumar.darji@avalara.com>",
+  "author": "Chirag Darji <chiragdarji.savli@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/chiragdarji/structural-thinking-mcp.git"
+    "url": "git+https://github.com/chiragdarji/structural-thinking-mcp.git"
   },
   "homepage": "https://github.com/chiragdarji/structural-thinking-mcp#readme",
   "bugs": {
