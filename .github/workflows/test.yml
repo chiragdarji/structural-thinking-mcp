@@ -1,0 +1,168 @@
+name: Test Structural Thinking MCP
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run type checking
+      run: npm run typecheck
+    
+    - name: Run unit tests
+      run: npm run test:coverage
+    
+    - name: Run integration tests
+      run: npm run test:integration
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        fail_ci_if_error: true
+    
+    - name: Check test results
+      run: |
+        if [ ! -f coverage/lcov.info ]; then
+          echo "Coverage file not found"
+          exit 1
+        fi
+        
+        # Check coverage thresholds
+        npm run test:coverage -- --passWithNoTests=false
+    
+    - name: Archive test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-node-${{ matrix.node-version }}
+        path: |
+          coverage/
+          jest-results.xml
+    
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist-files
+        path: dist/
+
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run ESLint
+      run: npx eslint src/ tests/ --ext .ts --format junit --output-file eslint-results.xml
+      continue-on-error: true
+    
+    - name: Upload lint results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: lint-results
+        path: eslint-results.xml
+
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run security audit
+      run: npm audit --audit-level=moderate
+    
+    - name: Check for vulnerabilities
+      run: |
+        npm audit --json > audit-results.json
+        if [ -s audit-results.json ]; then
+          echo "Security vulnerabilities found"
+          cat audit-results.json
+        fi
+    
+    - name: Upload security results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-results
+        path: audit-results.json
+
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build project
+      run: npm run build
+    
+    - name: Verify build artifacts
+      run: |
+        if [ ! -f dist/server.js ]; then
+          echo "Build failed - server.js not found"
+          exit 1
+        fi
+        
+        if [ ! -f dist/schema/structural-thinking.v1.json ]; then
+          echo "Build failed - schema file not found"  
+          exit 1
+        fi
+        
+        echo "Build successful - all artifacts present"
+    
+    - name: Test built server
+      run: |
+        # Basic smoke test
+        timeout 5s node dist/server.js || [ $? -eq 124 ]
+        echo "Server starts successfully"
