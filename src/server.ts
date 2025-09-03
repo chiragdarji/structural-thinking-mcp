@@ -393,11 +393,16 @@ function detectGaps(spec: StructuralThinking): { issues: Ambiguity[]; score: { c
 }
 
 // JSON Conversion Helper
-function convertPromptToJson(prompt: string, domain?: string): object {
-  const words = prompt.split(/\s+/);
+function convertPromptToJson(refinedPrompt: string, domain?: string, originalPrompt?: string): object {
+  // Split the refined prompt to extract base task and requirements
+  const parts = refinedPrompt.split(/\.\s*Requirements?:/i);
+  const baseTask = parts[0]?.trim() || refinedPrompt;
+  const requirementsText = parts[1]?.trim() || '';
+  
+  const words = baseTask.split(/\s+/);
   
   // Extract main task/action verbs
-  const actionVerbs = ['create', 'build', 'generate', 'design', 'implement', 'develop', 'write', 'make', 'add', 'fix', 'update', 'analyze', 'review', 'test', 'deploy'];
+  const actionVerbs = ['create', 'build', 'generate', 'design', 'implement', 'develop', 'write', 'make', 'add', 'fix', 'update', 'analyze', 'review', 'test', 'deploy', 'login', 'authenticate'];
   const mainAction = words.find(word => actionVerbs.some(verb => word.toLowerCase().includes(verb))) || words[0];
   
   // Extract subject/entity (usually noun phrases after the action)
@@ -405,11 +410,11 @@ function convertPromptToJson(prompt: string, domain?: string): object {
   const subjectWords = actionIndex >= 0 ? words.slice(actionIndex + 1, actionIndex + 4) : words.slice(1, 4);
   const subject = subjectWords.join(' ') || 'system';
   
-  // Extract constraints/requirements
+  // Extract constraints from base task
   const constraintKeywords = ['with', 'using', 'for', 'that', 'which', 'including', 'containing', 'having'];
   const constraints: string[] = [];
   
-  // Look for constraint patterns
+  // Look for constraint patterns in base task
   constraintKeywords.forEach(keyword => {
     const keywordIndex = words.findIndex(word => word.toLowerCase() === keyword);
     if (keywordIndex >= 0 && keywordIndex < words.length - 1) {
@@ -418,31 +423,49 @@ function convertPromptToJson(prompt: string, domain?: string): object {
     }
   });
   
-  // Extract numbers/quantities for requirements
-  const numberPattern = /\d+/g;
-  const numbers = prompt.match(numberPattern);
-  if (numbers) {
-    constraints.push(`Quantity specifications: ${numbers.join(', ')}`);
+  // Parse requirements from the refined prompt
+  const requirements: string[] = [];
+  if (requirementsText) {
+    // Extract specific requirements
+    if (requirementsText.includes('comprehensive response')) {
+      requirements.push('Provide comprehensive response');
+    }
+    if (requirementsText.includes('specific examples')) {
+      requirements.push('Include specific examples and actionable details');
+    }
+    if (requirementsText.includes('clear sections')) {
+      requirements.push('Structure response with clear sections');
+    }
+    if (requirementsText.includes('measurable outcomes')) {
+      requirements.push('Include measurable outcomes');
+    }
   }
   
-  return {
+  // Extract output structure
+  const outputStructure: string[] = [];
+  if (requirementsText.includes('Overview')) outputStructure.push('Overview');
+  if (requirementsText.includes('Details')) outputStructure.push('Details');
+  if (requirementsText.includes('Next Steps')) outputStructure.push('Next Steps');
+  
+  // Default structure if none found
+  if (outputStructure.length === 0) {
+    outputStructure.push('Overview', 'Details', 'Next Steps');
+  }
+  
+    return {
     task: mainAction || 'process request',
     subject: subject || 'system',
-    constraints: constraints.length > 0 ? constraints : ['No specific constraints identified'],
-    requirements: [
-      'Provide comprehensive response',
-      'Include specific examples',
-      'Structure output clearly',
-      'Include actionable details'
-    ],
+    constraints: constraints.length > 0 ? constraints : [],
+    requirements: requirements.length > 0 ? requirements : ['Provide comprehensive response'],
     outputFormat: {
-      structure: ['Overview', 'Details', 'Next Steps'],
+      structure: outputStructure,
       type: 'structured response',
-      includeExamples: true,
-      includeMeasurableOutcomes: true
+      includeExamples: requirementsText.includes('examples'),
+      includeMeasurableOutcomes: requirementsText.includes('measurable')
     },
     domain: domain || 'general',
-    originalPrompt: prompt
+    originalPrompt: originalPrompt || baseTask,
+    refinedPrompt: refinedPrompt
   };
 }
 
@@ -451,17 +474,20 @@ const server = new McpServer({ name: "StructuralThinking", version: "0.2.0" });
 
 // Tool: st_refine (Structural Thinking Analysis)
 server.registerTool("st_refine", {
-  title: "Prompt Refinement with Structural Analysis",
-  description: "Converts free-text prompts into structured Structural Thinking JSON with comprehensive analysis including transformation, gap detection, validation, improvement suggestions, and optional JSON conversion for structured prompt engineering",
+  title: "Prompt Refinement with Structural Analysis (Review Only - No Auto-Execution)",
+  description: "Analyzes and refines prompts for review. Shows improved prompt and optional JSON structure for manual copy/paste. Does NOT automatically execute the refined prompt - user must review and manually use the improved version if desired.",
   inputSchema: {
     prompt: z.string(),
     domain: z.enum(["code","docs","data","product","research"]).optional(),
     includeValidation: z.boolean().optional().default(true),
     includeImprovements: z.boolean().optional().default(true),
-    includeJsonConversion: z.boolean().optional().default(false)
+    json: z.boolean().optional().default(false)
   }
-}, async ({ prompt, domain, includeValidation = true, includeImprovements = true, includeJsonConversion = false }) => {
+}, async ({ prompt, domain, includeValidation = true, includeImprovements = true, json = false }) => {
   try {
+    // Debug logging for JSON parameter
+    console.error(`[DEBUG] st_refine called with json parameter: ${json} (type: ${typeof json})`);
+    
     // Enhanced input validation with better error reporting
     const promptValidation = validateInputDetailed(prompt, 'string', SCORING_CONFIG.validation.minPromptLength, SCORING_CONFIG.validation.maxPromptLength);
     if (!promptValidation.valid) {
@@ -602,7 +628,15 @@ server.registerTool("st_refine", {
     const vagueSection = vagueAnalysis.hasVague ? 
       `\n\n### 🎯 **Vague Language Detected**\n${vagueAnalysis.vagueTerms.map(term => `- "${term}"`).join('\n')}\n\n**Suggestions:**\n${vagueAnalysis.suggestions.map(s => `- ${s}`).join('\n')}` : '';
     
-    const userResponse = `## 📊 Analysis Summary
+    let userResponse = `# 🔍 ST_REFINE - PROMPT IMPROVEMENT SUGGESTIONS
+
+> **🎯 READY TO USE:** Your refined prompt is ready below! Choose your next action:
+> 
+> - **🔄 Copy & Run** - Copy the improved prompt and paste it in a new message
+> - **✏️ Edit & Run** - Copy the prompt, make your changes, then run your version  
+> - **📊 Use JSON** - Copy the structured JSON format for advanced use cases
+
+## 📊 Analysis Summary
 
 **Quality Score:** ${qualityLevel} (${qualityScore}/1.0)  
 **Ready for Implementation:** ${readinessIcon} ${isReady ? 'Yes' : 'Needs refinement'}  
@@ -640,26 +674,69 @@ ${improvementSuggestions?.patches && improvementSuggestions.patches.length > 0 ?
     return `${action} **${patch.op.toUpperCase()}** at \`${patch.path}\`:\n\`\`\`json\n${valueStr}\n\`\`\``;
   }).join('\n\n') : '✨ No suggestions needed'}
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## 🎯 IMPROVED PROMPT:
+## 🎯 IMPROVED PROMPT - READY TO USE
 
-\`\`\`
+> **⚡ SUGGESTION:** Your refined prompt is ready! Click inside the box below to select all text, then copy and paste it into a new message.
+
+\`\`\`markdown
 ${improvedPrompt}
-\`\`\`${includeJsonConversion ? `
+\`\`\`
 
----
+### 🚀 **Choose Your Next Action:**
 
-## 📋 JSON CONVERSION:
+| Action | Instructions |
+|--------|-------------|
+| 🔄 **Copy & Run** | Select all text above → Copy (Cmd/Ctrl+C) → Paste in new message → Send |
+| ✏️ **Edit & Run** | Copy text above → Modify as needed → Paste in new message → Send |
+| 📊 **Use JSON** | Scroll down to JSON section → Copy structured format instead |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+  // Add JSON conversion if requested
+  console.error(`[DEBUG] Checking JSON parameter: ${json}, type: ${typeof json}`);
+  
+  if (json === true) {
+    console.error(`[DEBUG] Adding JSON section to response`);
+    userResponse += `
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 📋 STRUCTURED JSON FORMAT - ADVANCED OPTION
+
+> **🔧 ALTERNATIVE:** Use this JSON structure for prompt engineering, API integration, or template-based generation.
 
 \`\`\`json
-${JSON.stringify(convertPromptToJson(prompt, domain), null, 2)}
-\`\`\`` : ''}`;
+${JSON.stringify(convertPromptToJson(improvedPrompt, domain, prompt), null, 2)}
+\`\`\`
+
+### 🛠️ **JSON Action Options:**
+
+| Use Case | Instructions |
+|----------|-------------|
+| 📋 **Template Creation** | Copy JSON → Use for consistent prompt generation |
+| 🔌 **API Integration** | Copy JSON → Feed into prompt engineering APIs |
+| 📝 **Field Extraction** | Copy specific fields (task, subject, requirements) |
+| 🔄 **Prompt Iteration** | Modify JSON structure → Generate new prompts |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  } else {
+    console.error(`[DEBUG] JSON parameter is false, not adding JSON section`);
+    // Add debug information to help troubleshoot
+    userResponse += `
+
+---
+**Debug Info:** JSON parameter received as: ${json} (type: ${typeof json})
+`;
+  }
   
+  // IMPORTANT: This tool should ONLY show analysis and refined prompt for review
+  // It should NOT auto-execute the refined prompt - user must review first
   return { 
     content: [{ 
       type: "text", 
-        text: userResponse 
+      text: userResponse 
     }] 
   };
   } catch (error) {
