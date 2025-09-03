@@ -1,6 +1,6 @@
 {
   "name": "structural-thinking-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "MCP server for converting free-text prompts into structured thinking frameworks with validation and gap detection.",
   "main": "dist/server.js",
