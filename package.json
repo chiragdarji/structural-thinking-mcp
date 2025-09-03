@@ -23,6 +23,10 @@
   ],
   "author": "Chirag Darji <chiragdarji.savli@gmail.com>",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/chiragdarji/structural-thinking-mcp.git"
