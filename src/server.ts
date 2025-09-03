@@ -392,7 +392,59 @@ function detectGaps(spec: StructuralThinking): { issues: Ambiguity[]; score: { c
   return { issues, score: { clarity: safeRound(clarity), completeness: safeRound(completeness) } };
 }
 
-
+// JSON Conversion Helper
+function convertPromptToJson(prompt: string, domain?: string): object {
+  const words = prompt.split(/\s+/);
+  
+  // Extract main task/action verbs
+  const actionVerbs = ['create', 'build', 'generate', 'design', 'implement', 'develop', 'write', 'make', 'add', 'fix', 'update', 'analyze', 'review', 'test', 'deploy'];
+  const mainAction = words.find(word => actionVerbs.some(verb => word.toLowerCase().includes(verb))) || words[0];
+  
+  // Extract subject/entity (usually noun phrases after the action)
+  const actionIndex = words.findIndex(word => actionVerbs.some(verb => word.toLowerCase().includes(verb)));
+  const subjectWords = actionIndex >= 0 ? words.slice(actionIndex + 1, actionIndex + 4) : words.slice(1, 4);
+  const subject = subjectWords.join(' ') || 'system';
+  
+  // Extract constraints/requirements
+  const constraintKeywords = ['with', 'using', 'for', 'that', 'which', 'including', 'containing', 'having'];
+  const constraints: string[] = [];
+  
+  // Look for constraint patterns
+  constraintKeywords.forEach(keyword => {
+    const keywordIndex = words.findIndex(word => word.toLowerCase() === keyword);
+    if (keywordIndex >= 0 && keywordIndex < words.length - 1) {
+      const constraintPhrase = words.slice(keywordIndex + 1, keywordIndex + 5).join(' ');
+      if (constraintPhrase) constraints.push(constraintPhrase);
+    }
+  });
+  
+  // Extract numbers/quantities for requirements
+  const numberPattern = /\d+/g;
+  const numbers = prompt.match(numberPattern);
+  if (numbers) {
+    constraints.push(`Quantity specifications: ${numbers.join(', ')}`);
+  }
+  
+  return {
+    task: mainAction || 'process request',
+    subject: subject || 'system',
+    constraints: constraints.length > 0 ? constraints : ['No specific constraints identified'],
+    requirements: [
+      'Provide comprehensive response',
+      'Include specific examples',
+      'Structure output clearly',
+      'Include actionable details'
+    ],
+    outputFormat: {
+      structure: ['Overview', 'Details', 'Next Steps'],
+      type: 'structured response',
+      includeExamples: true,
+      includeMeasurableOutcomes: true
+    },
+    domain: domain || 'general',
+    originalPrompt: prompt
+  };
+}
 
 // --- Server ---
 const server = new McpServer({ name: "StructuralThinking", version: "0.2.0" });
@@ -400,14 +452,15 @@ const server = new McpServer({ name: "StructuralThinking", version: "0.2.0" });
 // Tool: st_refine (Structural Thinking Analysis)
 server.registerTool("st_refine", {
   title: "Prompt Refinement with Structural Analysis",
-  description: "Converts free-text prompts into structured Structural Thinking JSON with comprehensive analysis including transformation, gap detection, validation, and improvement suggestions",
+  description: "Converts free-text prompts into structured Structural Thinking JSON with comprehensive analysis including transformation, gap detection, validation, improvement suggestions, and optional JSON conversion for structured prompt engineering",
   inputSchema: {
     prompt: z.string(),
     domain: z.enum(["code","docs","data","product","research"]).optional(),
     includeValidation: z.boolean().optional().default(true),
-    includeImprovements: z.boolean().optional().default(true)
+    includeImprovements: z.boolean().optional().default(true),
+    includeJsonConversion: z.boolean().optional().default(false)
   }
-}, async ({ prompt, domain, includeValidation = true, includeImprovements = true }) => {
+}, async ({ prompt, domain, includeValidation = true, includeImprovements = true, includeJsonConversion = false }) => {
   try {
     // Enhanced input validation with better error reporting
     const promptValidation = validateInputDetailed(prompt, 'string', SCORING_CONFIG.validation.minPromptLength, SCORING_CONFIG.validation.maxPromptLength);
@@ -593,7 +646,15 @@ ${improvementSuggestions?.patches && improvementSuggestions.patches.length > 0 ?
 
 \`\`\`
 ${improvedPrompt}
-\`\`\``;
+\`\`\`${includeJsonConversion ? `
+
+---
+
+## 📋 JSON CONVERSION:
+
+\`\`\`json
+${JSON.stringify(convertPromptToJson(prompt, domain), null, 2)}
+\`\`\`` : ''}`;
   
   return { 
     content: [{ 

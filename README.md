@@ -3,7 +3,7 @@
 MCP server for **Prompt → Analysis + Improved Prompt**. Analyzes prompts using structural thinking methodology, showing detailed analysis first, then the optimized prompt as clean text.
 
 ## Tool
-- **`st_refine(prompt, domain?, includeValidation?, includeImprovements?)`** → **analysis + improved prompt**
+- **`st_refine(prompt, domain?, includeValidation?, includeImprovements?, includeJsonConversion?)`** → **analysis + improved prompt + optional JSON**
 
 ### st_refine - Prompt Enhancement Tool
 
@@ -19,6 +19,7 @@ The **`st_refine`** tool enhances your prompts by:
 - `domain` (optional) - Context domain (code, docs, data, product, research)
 - `includeValidation` (optional) - Include validation analysis (default: true)
 - `includeImprovements` (optional) - Include improvement suggestions (default: true)
+- `includeJsonConversion` (optional) - Include JSON conversion for structured prompt engineering (default: false)
 
 **Returns analysis displayed on screen, then clean improved prompt:**
 
@@ -231,6 +232,57 @@ st_refine "Build a React component" --domain code
 ```
 st_refine "Create marketing copy" --includeValidation false
 ```
+
+### With JSON Conversion:
+```
+st_refine "Create a pet naming system" --includeJsonConversion true
+```
+
+---
+
+## 📋 **JSON Conversion Feature**
+
+The `includeJsonConversion` parameter converts your natural language prompt into a structured JSON format ideal for AI prompt engineering. This feature extracts:
+
+### **📊 JSON Structure:**
+- **Task**: Main objective (e.g., "create", "generate", "build")
+- **Subject**: Entity being described (e.g., "pet chinchilla", "login system")  
+- **Constraints**: Specific requirements and formatting rules
+- **Requirements**: Quality and content specifications
+- **Output Format**: Desired structure and organization
+- **Domain**: Context domain for better understanding
+
+### **🎯 Example Output:**
+```json
+{
+  "task": "create",
+  "subject": "pet naming system",
+  "constraints": [
+    "10 unique names",
+    "each labeled"
+  ],
+  "requirements": [
+    "Provide comprehensive response",
+    "Include specific examples", 
+    "Structure output clearly",
+    "Include actionable details"
+  ],
+  "outputFormat": {
+    "structure": ["Overview", "Details", "Next Steps"],
+    "type": "structured response",
+    "includeExamples": true,
+    "includeMeasurableOutcomes": true
+  },
+  "domain": "general",
+  "originalPrompt": "create a pet naming system with 10 unique names"
+}
+```
+
+### **🚀 Use Cases:**
+- **API Integration**: Convert prompts to JSON for programmatic use
+- **Prompt Engineering**: Structure requirements for AI systems  
+- **Documentation**: Create structured prompt specifications
+- **Automation**: Enable systematic prompt processing
 
 ---
 
