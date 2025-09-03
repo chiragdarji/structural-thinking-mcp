@@ -1,8 +1,8 @@
 {
   "name": "structural-thinking-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
-  "description": "MCP server for converting free-text prompts into structured thinking frameworks with validation and gap detection.",
+  "description": "Enhanced MCP server with Structural + Sequential Thinking synergy. Intelligent complexity detection, automatic sequential thinking integration, and dual-pattern cognitive amplification.",
   "main": "dist/server.js",
   "bin": {
     "structural-thinking-mcp": "dist/server.js"

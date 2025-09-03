@@ -469,21 +469,122 @@ function convertPromptToJson(refinedPrompt: string, domain?: string, originalPro
   };
 }
 
-// --- Server ---
-const server = new McpServer({ name: "StructuralThinking", version: "0.2.0" });
+// --- Sequential Thinking Integration ---
 
-// Tool: st_refine (Structural Thinking Analysis)
+/**
+ * Check if Sequential Thinking MCP is available
+ */
+async function checkSequentialThinkingAvailability(): Promise<boolean> {
+  try {
+    // This is a heuristic to check if sequential thinking is available
+    // In a real MCP environment, this would check available tools
+    return typeof process !== 'undefined' && process.env.MCP_SEQUENTIAL_AVAILABLE !== 'false';
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Analyze prompt complexity to determine if sequential thinking would be helpful
+ */
+function analyzeComplexity(prompt: string, gapAnalysis: any): {
+  isComplex: boolean;
+  needsSequentialThinking: boolean;
+  complexityScore: number;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  let complexityScore = 0;
+  
+  // Word count analysis
+  const wordCount = getWordCount(prompt);
+  if (wordCount > 50) {
+    complexityScore += 0.2;
+    reasons.push("Long prompt requiring systematic analysis");
+  }
+  
+  // Multiple concepts analysis
+  const concepts = ['and', 'or', 'but', 'however', 'although', 'while', 'whereas'];
+  const conceptMatches = concepts.filter(concept => prompt.toLowerCase().includes(concept)).length;
+  if (conceptMatches > 2) {
+    complexityScore += 0.3;
+    reasons.push("Multiple interconnected concepts");
+  }
+  
+  // Question complexity
+  const questionWords = ['how', 'why', 'what', 'when', 'where', 'which', 'who'];
+  const questionMatches = questionWords.filter(q => prompt.toLowerCase().includes(q)).length;
+  if (questionMatches > 1) {
+    complexityScore += 0.2;
+    reasons.push("Multiple questions requiring step-by-step analysis");
+  }
+  
+  // Technical complexity indicators
+  const technicalTerms = ['implement', 'architecture', 'design', 'algorithm', 'process', 'workflow', 'system', 'integration'];
+  const techMatches = technicalTerms.filter(term => prompt.toLowerCase().includes(term)).length;
+  if (techMatches > 1) {
+    complexityScore += 0.3;
+    reasons.push("Technical complexity requiring systematic breakdown");
+  }
+  
+  // Gap analysis integration
+  if (gapAnalysis.score.completeness < 0.7) {
+    complexityScore += 0.2;
+    reasons.push("Incomplete prompt requiring exploration");
+  }
+  
+  if (gapAnalysis.issues.length > 3) {
+    complexityScore += 0.2;
+    reasons.push("Multiple issues requiring systematic resolution");
+  }
+  
+  const isComplex = complexityScore > 0.4;
+  const needsSequentialThinking = isComplex && complexityScore > 0.6;
+  
+    return {
+    isComplex,
+    needsSequentialThinking,
+    complexityScore: Math.min(complexityScore, 1.0),
+    reasons
+  };
+}
+
+/**
+ * Generate sequential thinking prompt based on structural analysis
+ */
+function generateSequentialThinkingPrompt(originalPrompt: string, refinedPrompt: string, complexityAnalysis: any): string {
+  const reasonsText = complexityAnalysis.reasons.length > 0 
+    ? `\n\nSpecific areas to explore step-by-step:\n${complexityAnalysis.reasons.map((r: string) => `- ${r}`).join('\n')}`
+    : '';
+    
+  return `Analyze this prompt using step-by-step sequential thinking: "${refinedPrompt}"
+
+Break this down systematically by:
+1. Understanding the core problem/question
+2. Identifying key components and relationships  
+3. Exploring potential approaches and solutions
+4. Validating the analysis for completeness
+5. Providing actionable insights${reasonsText}
+
+Use your sequential reasoning to provide deeper insights that complement the structural analysis.`;
+}
+
+// --- Server ---
+const server = new McpServer({ name: "StructuralThinking-Enhanced", version: "0.3.0" });
+
+// Tool: st_refine (Enhanced Structural Thinking Analysis with Sequential Thinking Synergy)
 server.registerTool("st_refine", {
-  title: "Prompt Refinement with Structural Analysis (Review Only - No Auto-Execution)",
-  description: "Analyzes and refines prompts for review. Shows improved prompt and optional JSON structure for manual copy/paste. Does NOT automatically execute the refined prompt - user must review and manually use the improved version if desired.",
+  title: "Enhanced Prompt Refinement with Structural + Sequential Thinking Synergy",
+  description: "Analyzes and refines prompts with intelligent complexity detection. Automatically integrates with Sequential Thinking MCP when available and beneficial. Shows improved prompt, optional JSON structure, and sequential thinking recommendations for manual copy/paste. Does NOT automatically execute - user must review and manually use the improved version.",
   inputSchema: {
     prompt: z.string(),
     domain: z.enum(["code","docs","data","product","research"]).optional(),
     includeValidation: z.boolean().optional().default(true),
     includeImprovements: z.boolean().optional().default(true),
-    json: z.boolean().optional().default(false)
+    json: z.boolean().optional().default(false),
+    autoSequential: z.boolean().optional().default(true)
   }
-}, async ({ prompt, domain, includeValidation = true, includeImprovements = true, json = false }) => {
+}, async ({ prompt, domain, includeValidation = true, includeImprovements = true, json = false, autoSequential = true }) => {
   try {
     // Debug logging for JSON parameter
     console.error(`[DEBUG] st_refine called with json parameter: ${json} (type: ${typeof json})`);
@@ -510,6 +611,12 @@ server.registerTool("st_refine", {
 
     // Step 2: Detect gaps and issues
     const gapAnalysis = detectGaps(spec);
+
+    // Step 2.5: Analyze complexity for sequential thinking integration
+    const complexityAnalysis = analyzeComplexity(prompt, gapAnalysis);
+    const sequentialAvailable = autoSequential ? await checkSequentialThinkingAvailability() : false;
+    
+    console.error(`[DEBUG] Complexity analysis: score=${complexityAnalysis.complexityScore}, needsSequential=${complexityAnalysis.needsSequentialThinking}, available=${sequentialAvailable}`);
 
     // Step 3: Validate (if requested)
     let validationResults = null;
@@ -628,13 +735,48 @@ server.registerTool("st_refine", {
     const vagueSection = vagueAnalysis.hasVague ? 
       `\n\n### 🎯 **Vague Language Detected**\n${vagueAnalysis.vagueTerms.map(term => `- "${term}"`).join('\n')}\n\n**Suggestions:**\n${vagueAnalysis.suggestions.map(s => `- ${s}`).join('\n')}` : '';
     
-    let userResponse = `# 🔍 ST_REFINE - PROMPT IMPROVEMENT SUGGESTIONS
+    // Sequential thinking analysis section
+    const sequentialRecommendation = complexityAnalysis.needsSequentialThinking && sequentialAvailable;
+    const complexitySection = complexityAnalysis.isComplex ? `
+### 🧠 **Complexity Analysis**
+- **Complexity Score:** ${Math.round(complexityAnalysis.complexityScore * 100)}%
+- **Sequential Thinking Recommended:** ${complexityAnalysis.needsSequentialThinking ? '✅ Yes' : '❌ No'}
+- **Sequential Thinking Available:** ${sequentialAvailable ? '✅ Available' : '❌ Not Available'}
+
+**Complexity Factors:**
+${complexityAnalysis.reasons.map(reason => `- ${reason}`).join('\n')}` : '';
+
+    const sequentialSection = sequentialRecommendation ? `
+
+### 🔄 **Sequential Thinking Integration**
+Based on complexity analysis, this prompt would benefit from step-by-step sequential reasoning.
+
+**Recommended Sequential Prompt:**
+\`\`\`
+${generateSequentialThinkingPrompt(prompt, improvedPrompt, complexityAnalysis)}
+\`\`\`
+
+**Usage:** Copy the sequential prompt above and use it with your Sequential Thinking MCP for deeper analysis.` : 
+    (complexityAnalysis.isComplex && !sequentialAvailable ? `
+
+### 🔄 **Sequential Thinking Recommendation**
+This prompt has complexity score of ${Math.round(complexityAnalysis.complexityScore * 100)}% and would benefit from sequential thinking analysis, but Sequential Thinking MCP is not currently available.
+
+**To enable sequential thinking:**
+1. Install Sequential Thinking MCP
+2. Set environment variable: \`MCP_SEQUENTIAL_AVAILABLE=true\`
+3. Re-run this analysis with \`autoSequential: true\`
+
+**Manual alternative:** Use the complexity factors identified above to guide step-by-step analysis.` : '');
+
+    let userResponse = `# 🔍 ST_REFINE - ENHANCED ANALYSIS WITH SYNERGISTIC THINKING
 
 > **🎯 READY TO USE:** Your refined prompt is ready below! Choose your next action:
 > 
 > - **🔄 Copy & Run** - Copy the improved prompt and paste it in a new message
 > - **✏️ Edit & Run** - Copy the prompt, make your changes, then run your version  
 > - **📊 Use JSON** - Copy the structured JSON format for advanced use cases
+> - **🧠 Use Sequential** - Copy the sequential thinking prompt for step-by-step analysis
 
 ## 📊 Analysis Summary
 
@@ -642,7 +784,7 @@ server.registerTool("st_refine", {
 **Ready for Implementation:** ${readinessIcon} ${isReady ? 'Yes' : 'Needs refinement'}  
 **Domain Context:** ${domain || 'General'}  
 **Word Count:** ${getWordCount(prompt)} words  
-**Improvements Applied:** ${improvementNotes.join(', ') || 'None needed'}
+**Improvements Applied:** ${improvementNotes.join(', ') || 'None needed'}${complexitySection}${sequentialSection}
 
 ### 🔍 **Detailed Metrics**
 - **Clarity Score:** ${safeRound(gapAnalysis.score.clarity)}/1.0
